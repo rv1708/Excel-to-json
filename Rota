@@ -1,0 +1,75 @@
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from datetime import datetime, timedelta
+import time
+
+# List of people with their email IDs
+people = [
+    {'name': 'Person 1', 'email': 'person1@example.com'},
+    {'name': 'Person 2', 'email': 'person2@example.com'},
+    {'name': 'Person 3', 'email': 'person3@example.com'},
+    {'name': 'Person 4', 'email': 'person4@example.com'}
+]
+
+# Function to send email notification
+def send_email(to_email, name):
+    # Your email configuration (ensure you replace it with your email service and credentials)
+    sender_email = "your_email@example.com"
+    sender_password = "your_password"
+    
+    subject = "ROTA Notification"
+    body = f"Hello {name},\n\nYou have been selected for the ROTA this week."
+
+    # Setting up the email content
+    msg = MIMEMultipart()
+    msg['From'] = sender_email
+    msg['To'] = to_email
+    msg['Subject'] = subject
+    msg.attach(MIMEText(body, 'plain'))
+
+    # Sending the email
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)  # Adjust based on your email provider
+        server.starttls()
+        server.login(sender_email, sender_password)
+        text = msg.as_string()
+        server.sendmail(sender_email, to_email, text)
+        server.quit()
+        print(f"Notification sent to {name} at {to_email}")
+    except Exception as e:
+        print(f"Failed to send email to {to_email}. Error: {e}")
+
+# Function to handle ROTA selection every two weeks (Monday-Friday)
+def rota_schedule():
+    index = 0
+    while True:
+        today = datetime.now()
+        
+        # Check if it's a weekday (Monday to Friday, 0 = Monday, 4 = Friday)
+        if today.weekday() < 5:  # Monday to Friday
+            person = people[index]
+            send_email(person['email'], person['name'])
+
+            # Move to the next person in the list
+            index = (index + 1) % len(people)  # Cycle through the list
+
+            # Wait for 2 weeks (14 days) before selecting the next person
+            next_rota_day = today + timedelta(weeks=2)
+
+            # Sleep until the next Monday morning, but skip weekends
+            while next_rota_day.weekday() >= 5:  # If Saturday/Sunday, adjust to next Monday
+                next_rota_day += timedelta(days=1)
+            
+            time_to_sleep = (next_rota_day - today).total_seconds()
+            print(f"Next ROTA selection will be on: {next_rota_day}")
+            time.sleep(time_to_sleep)
+        else:
+            # If today is a weekend, wait until the next Monday
+            next_monday = today + timedelta(days=(7 - today.weekday()))
+            time_to_sleep = (next_monday - today).total_seconds()
+            print(f"Today is weekend, sleeping until next Monday: {next_monday}")
+            time.sleep(time_to_sleep)
+
+# Start the ROTA schedule
+rota_schedule()
