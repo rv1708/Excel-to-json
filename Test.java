@@ -1,33 +1,53 @@
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
+import org.apache.http.client.HttpClient;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.ssl.SSLContextBuilder;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 
-public class RestClient {
+import javax.net.ssl.SSLContext;
+import java.io.File;
+import java.security.KeyStore;
 
-    private static final String API_URL = "https://api.example.com/resource";
+public class SecureRestClient {
 
-    public static void main(String[] args) {
-        RestTemplate restTemplate = new RestTemplate();
+    public static void main(String[] args) throws Exception {
 
-        // Example: GET request
-        String response = restTemplate.getForObject(API_URL, String.class);
-        System.out.println("GET Response: " + response);
+        // Path to keystore and truststore
+        String keystorePath = "/path/to/your/keystore.jks";
+        String truststorePath = "/path/to/your/truststore.jks";
+        String keystorePassword = "your-keystore-password";
+        String truststorePassword = "your-truststore-password";
 
-        // Example: POST request
-        String requestBody = "{ \"key\": \"value\" }";
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("Content-Type", "application/json");
-        HttpEntity<String> request = new HttpEntity<>(requestBody, headers);
+        // Load Keystore
+        KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+        keystore.load(new java.io.FileInputStream(new File(keystorePath)), keystorePassword.toCharArray());
 
-        ResponseEntity<String> postResponse = restTemplate.postForEntity(API_URL, request, String.class);
-        System.out.println("POST Response: " + postResponse.getBody());
+        // Load Truststore
+        KeyStore truststore = KeyStore.getInstance(KeyStore.getDefaultType());
+        truststore.load(new java.io.FileInputStream(new File(truststorePath)), truststorePassword.toCharArray());
 
-        // Example: PUT request
-        restTemplate.put(API_URL, request);
+        // Create SSLContext with both keystore and truststore
+        SSLContext sslContext = SSLContextBuilder.create()
+                .loadKeyMaterial(keystore, keystorePassword.toCharArray())
+                .loadTrustMaterial(truststore, null)
+                .build();
 
-        // Example: DELETE request
-        restTemplate.delete(API_URL);
+        // Create SSL socket factory
+        SSLConnectionSocketFactory socketFactory = new SSLConnectionSocketFactory(sslContext);
+
+        // Create HttpClient with the custom SSL socket factory
+        HttpClient httpClient = HttpClients.custom()
+                .setSSLSocketFactory(socketFactory)
+                .build();
+
+        // Create RestTemplate using HttpComponentsClientHttpRequestFactory
+        HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory(httpClient);
+        RestTemplate restTemplate = new RestTemplate(factory);
+
+        // Call API using RestTemplate
+        String apiUrl = "https://api.example.com/secure-endpoint";
+        String response = restTemplate.getForObject(apiUrl, String.class);
+        System.out.println("API Response: " + response);
     }
 }
